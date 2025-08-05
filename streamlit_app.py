@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from io import BytesIO
+from datetime import datetime  # ✅ Importado para gerar o nome com a data
 
 # Lista de prefixos a excluir no campo "Nº do Item"
 prefixos_excluir = [
@@ -76,9 +77,12 @@ if arquivo:
 
         excel_bytes = converter_para_excel(df_resultado)
 
+        # ✅ Gera nome do arquivo com a data atual
+        nome_arquivo = datetime.today().strftime('%Y-%m-%d') + ".xlsx"
+
         st.download_button("📥 Baixar planilha filtrada",
                            data=excel_bytes,
-                           file_name="planilha_filtrada.xlsx",
+                           file_name=nome_arquivo,
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
     except Exception as e:
