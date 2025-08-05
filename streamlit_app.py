@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
+from io import BytesIO
 
-# Prefixos a excluir
+# Lista de prefixos a excluir no campo "Nº do Item"
 prefixos_excluir = [
     "AE5", "ARM", "COB", "DLM", "FDC", "HTS", "HS2", "LD6", "EL8", "MIC",
     "VFD", "RHT", "RMO", "RD3", "RD5", "RD2", "R30", "TRE", "TUB", "TIV",
@@ -10,7 +11,7 @@ prefixos_excluir = [
     "AMD", "AKT", "AHN"
 ]
 
-# Descrições preservadas
+# Descrições que devem sempre ser mantidas
 descricoes_preservadas = [
     "fortbio 1008", "fortbio 1009", "fortbio 1007", "fortbio 1010",
     "fortdoss 70"
@@ -22,6 +23,7 @@ codigos_6_digitos_permitidos = [
     "148478.L1", "222654.L1"
 ]
 
+# Função que valida se o código é permitido
 def item_valido(item):
     if not isinstance(item, str):
         return False
@@ -31,6 +33,7 @@ def item_valido(item):
         return True
     return False
 
+# Função principal de processamento
 def processar_planilha(df):
     df = df.rename(columns=lambda x: x.strip())
     df["desc_lower"] = df["Descrição"].astype(str).str.lower()
@@ -45,13 +48,23 @@ def processar_planilha(df):
         (df["Quantidade Disponível"] < 0)
     ].copy()
 
+    # Limpa coluna descrição e inverte valor negativo
     df_filtrado.drop(columns=["desc_lower"], inplace=True)
-    df_filtrado.loc[:, "Descrição"] = ""
-    df_filtrado.loc[:, "Quantidade Disponível"] = df_filtrado["Quantidade Disponível"].abs()
+    df_filtrado["Descrição"] = ""
+    df_filtrado["Quantidade Disponível"] = df_filtrado["Quantidade Disponível"].abs()
     df_filtrado = df_filtrado.sort_values(by="Nº do Item")
     return df_filtrado
 
-st.title("🔧 Filtro automático de planilhas")
+# Função auxiliar para converter o DataFrame para bytes
+def converter_para_excel(df):
+    buffer = BytesIO()
+    df.to_excel(buffer, index=False, engine="openpyxl")
+    buffer.seek(0)
+    return buffer
+
+# Interface do Streamlit
+st.set_page_config(page_title="Filtro Automático de Planilhas", page_icon="📄")
+st.title("📊 Filtro automático de planilhas")
 
 arquivo = st.file_uploader("📂 Selecione a planilha Excel", type=["xlsx"])
 
@@ -60,9 +73,13 @@ if arquivo:
         df = pd.read_excel(arquivo)
         df_resultado = processar_planilha(df)
         st.success("✅ Planilha processada com sucesso!")
-        st.download_button("📥 Baixar planilha filtrada", 
-                           data=df_resultado.to_excel(index=False, engine="openpyxl"),
+
+        excel_bytes = converter_para_excel(df_resultado)
+
+        st.download_button("📥 Baixar planilha filtrada",
+                           data=excel_bytes,
                            file_name="planilha_filtrada.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
     except Exception as e:
-        st.error(f"Erro ao processar: {e}")
+        st.error(f"❌ Erro ao processar: {e}")
